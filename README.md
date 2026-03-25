@@ -162,19 +162,39 @@ Training complete in **4,733.1s** on CPU.
 
 The 14×14 run shows notably slower convergence and higher variance throughout — reward never stabilises cleanly above 6 the way the 10×10 run does. A large KL spike at update 900 (0.1139) indicates a destabilising policy update that partially recovered. The larger state space with a fixed goal position creates harder generalisation pressure for the pure MLP policy.
 
-### Custom Hyperparameters — `--entropy-coef 0.02 --clip-eps 0.15` (10×10)
+### Custom Hyperparameters — `--entropy-coef 0.02 --clip-eps 0.15` (10×10, 585 Updates)
+
+Training complete in **1,781.8s** on CPU.
 
 | Update | Steps | Mean Reward | Mean Length | Entropy | KL |
 |---|---|---|---|---|---|
 | 10 | 5,120 | -11.217 | 82.3 | 1.292 | 0.0056 |
 | 50 | 25,600 | -0.215 | 46.0 | 1.221 | 0.0016 |
 | 100 | 51,200 | -0.107 | 45.1 | 1.199 | 0.0060 |
-| 130 | 66,560 | 4.300 | 36.9 | 1.085 | 0.0047 |
 | 200 | 102,400 | 4.700 | 34.9 | 1.016 | 0.0049 |
-| 240 | 122,880 | 5.865 | 37.5 | 0.951 | 0.0028 |
-| 250 | 128,000 | 5.905 | 29.9 | 1.084 | 0.0034 |
+| 280 | 143,360 | 7.250 | 26.5 | 0.916 | 0.0040 |
+| 300 | 153,600 | -0.160 | 48.3 | 1.116 | 0.0086 |
+| 390 | 199,680 | 8.055 | 22.4 | 0.828 | 0.0047 |
+| 410 | 209,920 | 7.742 | 20.1 | 0.789 | 0.0037 |
+| 420 | 215,040 | 8.133 | 20.1 | 0.791 | 0.0027 |
+| 500 | 256,000 | 7.502 | 24.4 | 0.792 | 0.0034 |
+| 510 | 261,120 | -0.925 | 54.4 | 0.866 | 0.0492 |
+| 530 | 271,360 | 7.970 | 20.3 | 0.699 | 0.0040 |
+| 560 | 286,720 | 8.012 | 23.6 | 0.777 | 0.0043 |
+| 580 | 296,960 | 7.935 | 28.6 | 0.814 | 0.0039 |
 
-Higher entropy coefficient (0.02 vs 0.01) and tighter clipping (0.15 vs 0.20) produces **faster early convergence** — the agent reaches positive reward by update 50 (~25k steps) vs update 110 (~56k steps) in the default run. Entropy stays higher throughout, indicating broader exploration is maintained.
+**vs. default run comparison:**
+
+| Metric | Default (β=0.01, ε=0.2) | Custom (β=0.02, ε=0.15) |
+|---|---|---|
+| First positive reward | Update ~110 (~56k steps) | Update ~50 (~25k steps) |
+| Training time | 1,435.7s | 1,781.8s |
+| Peak reward | 8.453 (update 410) | 8.133 (update 420) |
+| Final reward | 6.490 | 7.935 |
+| Mean episode length (late) | ~25–30 steps | ~20–25 steps |
+| Entropy (final) | ~0.75 | ~0.81 |
+
+Higher entropy coefficient and tighter clipping produces **faster early convergence** and slightly more stable late-stage performance, with entropy remaining higher throughout — the policy keeps exploring longer. The KL spike at update 510 (0.0492) mirrors the instability seen in the default run but recovers quickly.
 
 ---
 
