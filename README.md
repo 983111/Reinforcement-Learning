@@ -19,7 +19,8 @@ AgentGrid trains an autonomous agent to navigate a procedurally generated grid w
 | Architecture | Shared MLP Actor-Critic (2 × 128, Tanh) |
 | Policy Parameters | 20,485 |
 | Training budget (10×10) | 300,000 timesteps (~1,435s on CPU) |
-| Training budget (14×14) | 600,000 timesteps |
+| Training budget (14×14) | 600,000 timesteps (~4,733s on CPU) |
+| Training budget (custom hyperparams) | 300,000 timesteps |
 | Success rate (10×10, 20 eps) | 60.0% (12/20 reached goal) |
 
 ---
@@ -138,23 +139,42 @@ Training complete in **1,435.7s** on CPU.
 
 > **Note:** The agent exhibits bimodal behaviour — successful episodes complete in exactly 14 steps, while failed episodes always hit the 200-step timeout with no partial progress. This suggests the policy either finds the optimal path or gets stuck entirely, likely due to the fixed goal position creating map-dependent sensitivity.
 
-### 14×14 Grid — 600,000 Steps (In Progress)
+### 14×14 Grid — 600,000 Steps (1,171 Updates)
 
-Early training log (up to update 90 / 46k steps):
+Training complete in **4,733.1s** on CPU.
 
 | Update | Steps | Mean Reward | Mean Length | Entropy | KL |
 |---|---|---|---|---|---|
 | 10 | 5,120 | -41.145 | 192.7 | 1.372 | 0.0019 |
-| 20 | 10,240 | -25.820 | 145.6 | 1.320 | 0.0030 |
-| 30 | 15,360 | -12.457 | 80.9 | 1.179 | 0.0083 |
-| 40 | 20,480 | -15.947 | 86.6 | 1.208 | 0.0066 |
 | 50 | 25,600 | -20.817 | 111.4 | 1.249 | 0.0012 |
-| 60 | 30,720 | -5.078 | 72.3 | 1.234 | 0.0028 |
-| 70 | 35,840 | -19.142 | 102.2 | 1.186 | 0.0064 |
-| 80 | 40,960 | -10.798 | 96.0 | 1.212 | 0.0028 |
-| 90 | 46,080 | -10.005 | 97.8 | 1.198 | 0.0012 |
+| 100 | 51,200 | -17.382 | 124.1 | 1.186 | 0.0017 |
+| 200 | 102,400 | -1.125 | 67.0 | 1.152 | 0.0020 |
+| 300 | 153,600 | -6.197 | 70.5 | 1.119 | 0.0078 |
+| 400 | 204,800 | -3.980 | 90.2 | 0.996 | 0.0114 |
+| 500 | 256,000 | 0.962 | 62.8 | 0.924 | 0.0065 |
+| 600 | 307,200 | 3.150 | 60.8 | 0.853 | 0.0092 |
+| 700 | 358,400 | 6.157 | 49.5 | 0.640 | 0.0027 |
+| 800 | 409,600 | 2.800 | 59.7 | 0.651 | 0.0025 |
+| 900 | 460,800 | -0.255 | 60.2 | 0.479 | 0.1139 |
+| 1000 | 512,000 | 5.192 | 56.3 | 0.501 | 0.0029 |
+| 1100 | 563,200 | -0.303 | 62.0 | 0.587 | 0.0124 |
+| 1170 | 599,040 | -0.435 | 58.2 | 0.604 | 0.0052 |
 
-The larger grid shows expected slower convergence — the reward trajectory mirrors the 10×10 pattern with a delayed learning onset.
+The 14×14 run shows notably slower convergence and higher variance throughout — reward never stabilises cleanly above 6 the way the 10×10 run does. A large KL spike at update 900 (0.1139) indicates a destabilising policy update that partially recovered. The larger state space with a fixed goal position creates harder generalisation pressure for the pure MLP policy.
+
+### Custom Hyperparameters — `--entropy-coef 0.02 --clip-eps 0.15` (10×10)
+
+| Update | Steps | Mean Reward | Mean Length | Entropy | KL |
+|---|---|---|---|---|---|
+| 10 | 5,120 | -11.217 | 82.3 | 1.292 | 0.0056 |
+| 50 | 25,600 | -0.215 | 46.0 | 1.221 | 0.0016 |
+| 100 | 51,200 | -0.107 | 45.1 | 1.199 | 0.0060 |
+| 130 | 66,560 | 4.300 | 36.9 | 1.085 | 0.0047 |
+| 200 | 102,400 | 4.700 | 34.9 | 1.016 | 0.0049 |
+| 240 | 122,880 | 5.865 | 37.5 | 0.951 | 0.0028 |
+| 250 | 128,000 | 5.905 | 29.9 | 1.084 | 0.0034 |
+
+Higher entropy coefficient (0.02 vs 0.01) and tighter clipping (0.15 vs 0.20) produces **faster early convergence** — the agent reaches positive reward by update 50 (~25k steps) vs update 110 (~56k steps) in the default run. Entropy stays higher throughout, indicating broader exploration is maintained.
 
 ---
 
