@@ -16,9 +16,11 @@ AgentGrid trains an autonomous agent to navigate a procedurally generated grid w
 |---|---|
 | Environment | Custom `gymnasium`-compatible `GridWorldEnv` |
 | Algorithm | PPO-Clip with GAE (Schulman et al., 2017) |
-| Architecture | Shared MLP Actor-Critic (2 × 128) |
-| Training budget | 300,000 timesteps |
-| Typical success rate (10×10 grid) | ~85% after training |
+| Architecture | Shared MLP Actor-Critic (2 × 128, Tanh) |
+| Policy Parameters | 20,485 |
+| Training budget (10×10) | 300,000 timesteps (~1,435s on CPU) |
+| Training budget (14×14) | 600,000 timesteps |
+| Success rate (10×10, 20 eps) | 60.0% (12/20 reached goal) |
 
 ---
 
@@ -33,7 +35,7 @@ agentgrid/
 ├── utils/
 │   └── visualise.py         # Plotting helpers
 ├── tests/
-│   └── test_grid_world.py   # 24 unit tests
+│   └── test_grid_world.py   # 30 unit tests (30/30 passing)
 ├── train.py                 # Training loop
 ├── eval.py                  # Evaluation + GIF generation
 ├── gymnasium_shim.py        # Offline Gym fallback
@@ -60,7 +62,7 @@ pip install -r requirements.txt
 python train.py
 ```
 
-Default config: 10×10 grid, 300k timesteps, ~5–10 minutes on CPU.
+Default config: 10×10 grid, 300k timesteps, ~24 minutes on CPU.
 
 ```bash
 # Larger grid, longer training
@@ -80,6 +82,119 @@ python eval.py --n-episodes 20
 
 ```bash
 python -m pytest tests/ -v
+```
+
+---
+
+## Training Results
+
+### 10×10 Grid — 300,000 Steps (585 Updates)
+
+| Phase | Updates | Steps | Mean Reward | Mean Length | Entropy |
+|---|---|---|---|---|---|
+| Early | 10–50 | 5k–25k | -33.9 → -5.1 | 192 → 54 | 1.338 → 1.250 |
+| Mid | 100–200 | 51k–102k | -10.9 → -2.1 | 75 → 53 | 1.244 → 1.054 |
+| Late | 300–400 | 153k–204k | 1.8 → 8.0 | 54 → 19 | 1.041 → 0.708 |
+| Final | 500–585 | 256k–296k | 7.0 → 6.5 | 25 → 30 | 0.701 → 0.751 |
+
+Training complete in **1,435.7s** on CPU.
+
+### Evaluation Results — 10×10 Grid (20 Episodes)
+
+```
+════════════════════════════════════════════════════
+  Evaluation Results  (20 episodes)
+════════════════════════════════════════════════════
+  Success rate      : 60.0%  (12/20 reached goal)
+  Timeouts          : 8
+  Mean reward       : 1.562  ±  9.443
+  Mean episode len  : 88.4 steps
+
+  Per-episode breakdown:
+    Ep    Reward   Steps  Outcome
+  ────  ────────  ──────  ────────
+     1   -10.000     200  ✗ timeout
+     2     9.350      14  ✓ goal
+     3   -10.000     200  ✗ timeout
+     4     9.350      14  ✓ goal
+     5   -10.000     200  ✗ timeout
+     6   -10.000     200  ✗ timeout
+     7     9.350      14  ✓ goal
+     8     9.350      14  ✓ goal
+     9     9.350      14  ✓ goal
+    10   -10.000     200  ✗ timeout
+    11     9.350      14  ✓ goal
+    12     8.400      14  ✓ goal
+    13     9.350      14  ✓ goal
+    14     9.350      14  ✓ goal
+    15     9.350      14  ✓ goal
+    16     9.350      14  ✓ goal
+    17   -10.000     200  ✗ timeout
+    18   -10.000     200  ✗ timeout
+    19   -10.000     200  ✗ timeout
+    20     9.350      14  ✓ goal
+════════════════════════════════════════════════════
+```
+
+> **Note:** The agent exhibits bimodal behaviour — successful episodes complete in exactly 14 steps, while failed episodes always hit the 200-step timeout with no partial progress. This suggests the policy either finds the optimal path or gets stuck entirely, likely due to the fixed goal position creating map-dependent sensitivity.
+
+### 14×14 Grid — 600,000 Steps (In Progress)
+
+Early training log (up to update 90 / 46k steps):
+
+| Update | Steps | Mean Reward | Mean Length | Entropy | KL |
+|---|---|---|---|---|---|
+| 10 | 5,120 | -41.145 | 192.7 | 1.372 | 0.0019 |
+| 20 | 10,240 | -25.820 | 145.6 | 1.320 | 0.0030 |
+| 30 | 15,360 | -12.457 | 80.9 | 1.179 | 0.0083 |
+| 40 | 20,480 | -15.947 | 86.6 | 1.208 | 0.0066 |
+| 50 | 25,600 | -20.817 | 111.4 | 1.249 | 0.0012 |
+| 60 | 30,720 | -5.078 | 72.3 | 1.234 | 0.0028 |
+| 70 | 35,840 | -19.142 | 102.2 | 1.186 | 0.0064 |
+| 80 | 40,960 | -10.798 | 96.0 | 1.212 | 0.0028 |
+| 90 | 46,080 | -10.005 | 97.8 | 1.198 | 0.0012 |
+
+The larger grid shows expected slower convergence — the reward trajectory mirrors the 10×10 pattern with a delayed learning onset.
+
+---
+
+## Test Suite
+
+**30/30 tests passing** in 9.81s on Python 3.10.11 / pytest 9.0.2 (Windows 10).
+
+```
+tests/test_grid_world.py::TestSpaces::test_observation_shape          PASSED
+tests/test_grid_world.py::TestSpaces::test_observation_dtype          PASSED
+tests/test_grid_world.py::TestSpaces::test_observation_range          PASSED
+tests/test_grid_world.py::TestSpaces::test_action_space_size          PASSED
+tests/test_grid_world.py::TestSpaces::test_action_space_contains      PASSED
+tests/test_grid_world.py::TestMapGeneration::test_border_is_all_walls PASSED
+tests/test_grid_world.py::TestMapGeneration::test_goal_is_placed      PASSED
+tests/test_grid_world.py::TestMapGeneration::test_goal_position       PASSED
+tests/test_grid_world.py::TestMapGeneration::test_agent_cell_is_not_wall PASSED
+tests/test_grid_world.py::TestMapGeneration::test_reachability        PASSED
+tests/test_grid_world.py::TestMapGeneration::test_different_seeds_differ PASSED
+tests/test_grid_world.py::TestMapGeneration::test_same_seed_reproducible PASSED
+tests/test_grid_world.py::TestStepMechanics::test_step_returns_correct_types PASSED
+tests/test_grid_world.py::TestStepMechanics::test_floor_step_reward   PASSED
+tests/test_grid_world.py::TestStepMechanics::test_wall_bump_reward    PASSED
+tests/test_grid_world.py::TestStepMechanics::test_invalid_action_raises PASSED
+tests/test_grid_world.py::TestStepMechanics::test_truncation_at_max_steps PASSED
+tests/test_grid_world.py::TestStepMechanics::test_goal_terminates_episode PASSED
+tests/test_grid_world.py::TestObservation::test_agent_center_encoded  PASSED
+tests/test_grid_world.py::TestObservation::test_obs_changes_after_move PASSED
+tests/test_grid_world.py::TestObservation::test_oob_padded_as_wall    PASSED
+tests/test_grid_world.py::TestInfoDict::test_info_keys                PASSED
+tests/test_grid_world.py::TestInfoDict::test_step_count_increments    PASSED
+tests/test_grid_world.py::TestInfoDict::test_manhattan_dist_type      PASSED
+tests/test_grid_world.py::TestRendering::test_rgb_array_shape         PASSED
+tests/test_grid_world.py::TestRendering::test_rgb_array_dtype         PASSED
+tests/test_grid_world.py::TestRendering::test_human_render_no_crash   PASSED
+tests/test_grid_world.py::TestProperties::test_n_actions              PASSED
+tests/test_grid_world.py::TestProperties::test_obs_dim                PASSED
+tests/test_grid_world.py::TestProperties::test_repr                   PASSED
+
+================================================= 30 passed in 9.81s ==================================================
 ```
 
 ---
@@ -112,14 +227,6 @@ python -m pytest tests/ -v
 ### Observation space
 
 A **5×5 egocentric window** centred on the agent, flattened to shape `(25,)` float32. Out-of-bounds cells are padded as walls. The agent's own cell is encoded as `4`.
-
-```
-[ wall | wall | wall | wall | wall ]
-[ wall |  .   |  .   |  .   | wall ]
-[ wall |  .   |  A   |  .   |  .  ]   ← agent at centre (index 12)
-[ wall |  .   |  .   |  .   |  .  ]
-[ wall |  .   |  ✗   |  .   |  .  ]
-```
 
 ### Action space
 
@@ -188,8 +295,6 @@ L^VF = E[ (V_θ(s_t) − R_t)² ]
 L = −L^CLIP + c₁ · L^VF − β · H[π_θ]
 ```
 
-Where `H[π_θ]` is the policy entropy bonus (encourages exploration).
-
 ### Hyperparameters
 
 | Parameter | Value | Description |
@@ -223,7 +328,7 @@ outputs/
 │   ├── grid_snapshot.png      # env render
 │   └── value_heatmap.png      # critic V(s) across grid
 ├── gifs/
-│   └── agent_eval.gif         # agent navigating the grid
+│   └── agent_eval.gif         # 201-frame agent navigation replay
 └── training_log.csv           # full per-update log
 ```
 
@@ -239,7 +344,10 @@ outputs/
    *arXiv:1506.02438*
 
 3. Mnih, V. et al. (2016). **Asynchronous Methods for Deep Reinforcement Learning**.
-   *ICML 2016* (foundational actor-critic reference)
+   *ICML 2016*
+
+4. Engstrom, L. et al. (2020). **Implementation Matters in Deep Policy Gradients: A Case Study on PPO and TRPO**.
+   *ICLR 2020*
 
 ---
 
