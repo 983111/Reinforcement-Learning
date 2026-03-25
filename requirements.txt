@@ -1,0 +1,12 @@
+# AgentGrid — dependencies
+# Install with: pip install -r requirements.txt
+
+gymnasium>=0.29.0
+numpy>=1.24.0
+torch>=2.0.0
+matplotlib>=3.7.0
+imageio>=2.31.0          # GIF rendering
+imageio[ffmpeg]          # optional: mp4 export
+tensorboard>=2.13.0      # training curve logging
+pytest>=7.4.0            # test suite
+tqdm>=4.65.0             # progress bars
